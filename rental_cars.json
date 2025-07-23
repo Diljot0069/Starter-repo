@@ -1,0 +1,138 @@
+// Search.java
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public class Search {
+    @JsonProperty("city")
+    private String city;
+    
+    // Default constructor (required for Jackson deserialization)
+    public Search() {}
+    
+    // Constructor with parameters
+    public Search(String city) {
+        this.city = city;
+    }
+    
+    // Getter
+    public String getCity() {
+        return city;
+    }
+    
+    // Setter
+    public void setCity(String city) {
+        this.city = city;
+    }
+}
+
+// SearchResult.java
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public class SearchResult {
+    @JsonProperty("city")
+    private String city;
+    
+    @JsonProperty("kind")
+    private String kind;
+    
+    @JsonProperty("title")
+    private String title;
+    
+    // Default constructor (required for Jackson deserialization)
+    public SearchResult() {}
+    
+    // Constructor with parameters
+    public SearchResult(String city, String kind, String title) {
+        this.city = city;
+        this.kind = kind;
+        this.title = title;
+    }
+    
+    // Getters
+    public String getCity() {
+        return city;
+    }
+    
+    public String getKind() {
+        return kind;
+    }
+    
+    public String getTitle() {
+        return title;
+    }
+    
+    // Setters
+    public void setCity(String city) {
+        this.city = city;
+    }
+    
+    public void setKind(String kind) {
+        this.kind = kind;
+    }
+    
+    public void setTitle(String title) {
+        this.title = title;
+    }
+}
+
+// SearchResource.java
+import javax.ws.rs.*;
+import javax.ws.rs.core.MediaType;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Path("/search")
+@Consumes(MediaType.APPLICATION_JSON)
+@Produces(MediaType.APPLICATION_JSON)
+public class SearchResource {
+    
+    private final List<SearchResult> searchResults;
+    
+    // Constructor to inject the search results list
+    public SearchResource(List<SearchResult> searchResults) {
+        this.searchResults = searchResults;
+    }
+    
+    @POST
+    public List<SearchResult> search(Search searchRequest) {
+        // Filter the searchResults list based on the city from the search request
+        return searchResults.stream()
+                .filter(result -> result.getCity().equalsIgnoreCase(searchRequest.getCity()))
+                .collect(Collectors.toList());
+    }
+}
+
+// HoenScannerApplication.java - Modified run method
+import io.dropwizard.Application;
+import io.dropwizard.setup.Environment;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
+
+public class HoenScannerApplication extends Application<HoenScannerConfiguration> {
+    
+    @Override
+    public void run(HoenScannerConfiguration configuration, Environment environment) throws Exception {
+        // Load JSON files and combine into single searchResults list
+        ObjectMapper objectMapper = new ObjectMapper();
+        List<SearchResult> searchResults = new ArrayList<>();
+        
+        // Load rental cars
+        InputStream rentalCarsStream = getClass().getClassLoader().getResourceAsStream("rental_cars.json");
+        List<SearchResult> rentalCars = objectMapper.readValue(rentalCarsStream, new TypeReference<List<SearchResult>>() {});
+        searchResults.addAll(rentalCars);
+        
+        // Load hotels
+        InputStream hotelsStream = getClass().getClassLoader().getResourceAsStream("hotels.json");
+        List<SearchResult> hotels = objectMapper.readValue(hotelsStream, new TypeReference<List<SearchResult>>() {});
+        searchResults.addAll(hotels);
+        
+        // Register the SearchResource
+        environment.jersey().register(new SearchResource(searchResults));
+    }
+    
+    public static void main(String[] args) throws Exception {
+        new HoenScannerApplication().run(args);
+    }
+}
